@@ -55,8 +55,10 @@ extern "C" {
 #endif
 
 #ifdef PSP2
+#ifdef PSP2DEBUG
 #include <psp2shell.h>
 #define printf psp2shell_print
+#endif
 FILE *_fopen(const char *filename, const char *mode);
 #undef fopen
 #define fopen _fopen

@@ -20,6 +20,7 @@ LIBS = -lpsp2shell -lpthread -lSDL2 -lSDL2_image -lSDL2_mixer -lvorbis -lvorbisf
 CFLAGS  = -Wl,-q -O3 -Wall \
 			-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard \
 			-DPSP2 -std=gnu99 -I$(VITASDK)/arm-vita-eabi/include
+#-DPSP2DEBUG
 
 OBJS := main.o data.o seg000.o seg001.o seg002.o seg003.o seg004.o \
 	seg005.o seg006.o seg007.o seg008.o seg009.o seqtbl.o replay.o options.o \
@@ -33,16 +34,18 @@ $(PROJECT).vpk: eboot.bin param.sfo
 	rm -rf vpk && mkdir -p vpk/sce_sys/livearea/contents
 	cp eboot.bin vpk/
 	cp param.sfo vpk/sce_sys/
+	cp ../psp2/icon0.png vpk/sce_sys/
+	cp ../psp2/template.xml vpk/sce_sys/livearea/contents/
+	cp ../psp2/bg.png vpk/sce_sys/livearea/contents/
+	cp ../psp2/startup.png vpk/sce_sys/livearea/contents/
+	cp ../psp2/gekihen-splash.png vpk/
+	cp ../psp2/consolex-splash.png vpk/
 	cp ../*.DAT vpk/
 	cp -r ../data vpk/data
 	cd vpk && zip -r ../$(PROJECT)-$(DATE).vpk . && cd ..
-#	cp vita/icon0.png vpk/sce_sys/
-#	cp vita/template.xml vpk/sce_sys/livearea/contents/
-#	cp vita/bg.png vpk/sce_sys/livearea/contents/
-#	cp vita/startup.png vpk/sce_sys/livearea/contents/
 	
 eboot.bin: $(PROJECT).velf
-	vita-make-fself $(PROJECT).velf eboot.bin
+	vita-make-fself -s $(PROJECT).velf eboot.bin
 
 param.sfo:
 	vita-mksfoex -s TITLE_ID="$(PROJECT_TITLEID)" "$(PROJECT_TITLE)" param.sfo

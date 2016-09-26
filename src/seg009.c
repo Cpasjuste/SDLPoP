@@ -32,6 +32,7 @@ The authors of this program may be contacted at http://forum.princed.org
 vita2d_texture *texture;
 void *textureData;
 void *surfaceData;
+extern void clear_screen();
 #endif
 
 // Most functions in this file are different from those in the original game.
@@ -2527,18 +2528,7 @@ void __pascal start_timer(int timer_index, int length) {
 void toggle_fullscreen() {
 #ifdef PSP2
 	start_fullscreen = !start_fullscreen;
-	vita2d_start_drawing();
-	vita2d_clear_screen();
-	vita2d_end_drawing();
-	vita2d_swap_buffers();
-	vita2d_start_drawing();
-	vita2d_clear_screen();
-	vita2d_end_drawing();
-	vita2d_swap_buffers();
-	vita2d_start_drawing();
-	vita2d_clear_screen();
-	vita2d_end_drawing();
-	vita2d_swap_buffers();
+	clear_screen();
 #else
     uint32_t flags = SDL_GetWindowFlags(window_);
     if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
