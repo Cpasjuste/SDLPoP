@@ -54,6 +54,17 @@ extern "C" {
 #define ABS(x) ((x)<0?-(x):(x))
 #endif
 
+#ifdef PSP2
+#include <psp2shell.h>
+#define printf psp2shell_print
+FILE *_fopen(const char *filename, const char *mode);
+#undef fopen
+#define fopen _fopen
+int _fprintf(FILE *stream, const char *format, ...);
+#undef fprintf
+#define fprintf _fprintf
+#endif
+
 #ifdef __cplusplus
 }
 #endif

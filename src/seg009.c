@@ -25,6 +25,15 @@ The authors of this program may be contacted at http://forum.princed.org
 #include <sys/stat.h>
 #include <errno.h>
 
+#ifdef PSP2
+#include <vita2d.h>
+#define SCR_W 960
+#define SCR_H 544
+vita2d_texture *texture;
+void *textureData;
+void *surfaceData;
+#endif
+
 // Most functions in this file are different from those in the original game.
 
 void sdlperror(const char* header) {
@@ -1469,7 +1478,11 @@ size_t digi_remaining_length = 0;
 // The properties of the audio device.
 SDL_AudioSpec* digi_audiospec = NULL;
 // The desired samplerate. Everything will be resampled to this.
+#ifdef PSP2
+const int digi_samplerate = 48000;
+#else
 const int digi_samplerate = 44100;
+#endif
 
 void stop_digi() {
 #ifndef USE_MIXER
@@ -1676,8 +1689,11 @@ sound_buffer_type* load_sound(int index) {
 				char filename[POP_MAX_PATH];
 				const char* ext=exts[i];
 				struct stat info;
-
+#ifdef PSP2
+				snprintf(filename, sizeof(filename), "app0:/data/music/%s.%s", sound_name(index), ext);
+#else
 				snprintf(filename, sizeof(filename), "data/music/%s.%s", sound_name(index), ext);
+#endif				
 				// Skip nonexistent files:
 				if (stat(filename, &info))
 					continue;
@@ -1929,9 +1945,19 @@ void __pascal far set_gr_mode(byte grmode) {
      * subsequently displayed; awaits a better refactoring!
      * The function handling the screen updates is request_screen_update()
      * */
+#ifdef PSP2
+	// use vita texture for rendering
+	start_fullscreen = true;
+	onscreen_surface_ = SDL_CreateRGBSurface(0, 320, 200, 16, 0xF800, 0x7E0, 0x1F, 0);
+	texture = vita2d_create_empty_texture_format(320, 200, SCE_GXM_TEXTURE_FORMAT_R5G6B5);
+	textureData = vita2d_texture_get_datap(texture);
+	surfaceData = onscreen_surface_->pixels;
+	onscreen_surface_->pixels = textureData;
+#else
     onscreen_surface_ = SDL_CreateRGBSurface(0, 320, 200, 24, 0xFF, 0xFF << 8, 0xFF << 16, 0) ;
 	sdl_texture_ = SDL_CreateTexture(renderer_, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
 									 320, 200);
+#endif
 	screen_updates_suspended = 0;
 
 	if (onscreen_surface_ == NULL) {
@@ -1956,10 +1982,31 @@ void __pascal far set_gr_mode(byte grmode) {
 
 void request_screen_update() {
 	if (!screen_updates_suspended) {
+#ifdef PSP2
+		int x = 0, y = 0, w = 320, h = 200;
+		float sx = 1, sy = 1;
+		float ratio = (float)320/(float)200;
+		
+		if(start_fullscreen) {
+			h = SCR_H; w = (float)h*ratio;
+			x = (SCR_W-w)/2; y = 0;
+		} else {
+			h = 400; w = 640;
+			x = (SCR_W-w)/2; y = (SCR_H-h)/2;
+		}
+		sx = (float)w/(float)320;
+		sy = (float)h/(float)200;
+
+		vita2d_start_drawing();
+		vita2d_draw_texture_scale(texture, x, y, sx, sy);
+		vita2d_end_drawing();
+		vita2d_swap_buffers();
+#else
 		SDL_UpdateTexture(sdl_texture_, NULL, onscreen_surface_->pixels, onscreen_surface_->pitch);
 		SDL_RenderClear(renderer_);
 		SDL_RenderCopy(renderer_, sdl_texture_, NULL, NULL);
 		SDL_RenderPresent(renderer_);
+#endif
 	}
 }
 
@@ -2478,6 +2525,21 @@ void __pascal start_timer(int timer_index, int length) {
 }
 
 void toggle_fullscreen() {
+#ifdef PSP2
+	start_fullscreen = !start_fullscreen;
+	vita2d_start_drawing();
+	vita2d_clear_screen();
+	vita2d_end_drawing();
+	vita2d_swap_buffers();
+	vita2d_start_drawing();
+	vita2d_clear_screen();
+	vita2d_end_drawing();
+	vita2d_swap_buffers();
+	vita2d_start_drawing();
+	vita2d_clear_screen();
+	vita2d_end_drawing();
+	vita2d_swap_buffers();
+#else
     uint32_t flags = SDL_GetWindowFlags(window_);
     if (flags & SDL_WINDOW_FULLSCREEN_DESKTOP) {
         SDL_SetWindowFullscreen(window_, 0);
@@ -2487,6 +2549,7 @@ void toggle_fullscreen() {
         SDL_SetWindowFullscreen(window_, SDL_WINDOW_FULLSCREEN_DESKTOP);
         SDL_ShowCursor(SDL_DISABLE);
     }
+#endif
 }
 
 void idle() {
@@ -2497,10 +2560,12 @@ void idle() {
 		sdlperror("SDL_WaitEvent");
 		quit(1);
 	}
+
 	// We still want to process all events in the queue
 	// For instance, there may be simultaneous SDL2 KEYDOWN and TEXTINPUT events
 	do { // while there are still events to be processed
 		switch (event.type) {
+#ifndef PSP2			
 			case SDL_KEYDOWN: 
 			{
 				int modifier = event.key.keysym.mod;
@@ -2546,7 +2611,6 @@ void idle() {
 			case SDL_KEYUP:
 				key_states[event.key.keysym.scancode] = 0;
 				break;
-
 			case SDL_JOYAXISMOTION:
 				if (event.jaxis.axis == 0) {
 
@@ -2570,7 +2634,7 @@ void idle() {
 					else
 						gamepad_states[1] = 0;
 				}
-				break;
+				break;			
 			case SDL_JOYHATMOTION:
 				switch (event.jhat.value)
 				{
@@ -2585,9 +2649,24 @@ void idle() {
 					default: gamepad_states[0] = 0; gamepad_states[1] = 0;  break;
 				}
 				break;
+#endif				
 			case SDL_JOYBUTTONDOWN:
 				switch (event.jbutton.button)
 				{
+#ifdef PSP2
+					case 0: gamepad_states[0] = 1; gamepad_states[1] = -1; break;	//	TRIANGLE	right (and up)
+					case 1: gamepad_states[1] = -1; break;							//	CIRCLE		(up)
+					case 2: gamepad_states[2] = 1; break;							//	CROSS		(shift)
+					case 3: gamepad_states[0] = -1; gamepad_states[1] = -1; break;	//	SQUARE		left (and up)
+					case 4: toggle_fullscreen(); break;								//	L
+					case 5: toggle_fullscreen(); break;								//	R
+					case 6: gamepad_states[1] = 1; break;							//	DOWN		(down)
+					case 7: gamepad_states[0] = -1; break;							//	LEFT		(left)
+					case 8: gamepad_states[1] = -1; break;							//	UP			(up)
+					case 9: gamepad_states[0] = 1; break;							//	RIGHT		(right)
+					case 10: quit(0); break;										//	SELECT
+					case 11: quit(0); break;										//	START
+#else
 					case 0: gamepad_states[1] = 1; break; /*** A (down) ***/
 					case 1: break; /*** B ***/
 					case 2: gamepad_states[2] = 1; break; /*** X (shift) ***/
@@ -2599,11 +2678,26 @@ void idle() {
 					case 8: break; /*** guide ***/
 					case 9: break; /*** left joystick ***/
 					case 10: break; /*** right joystick ***/
+#endif
 				}
 				break;
 			case SDL_JOYBUTTONUP:
 				switch (event.jbutton.button)
 				{
+#ifdef PSP2
+					case 0: gamepad_states[0] = 0; gamepad_states[1] = 0; break;	//	TRIANGLE	right (and up)
+					case 1: gamepad_states[1] = 0; break;							//	CIRCLE		(up)
+					case 2: gamepad_states[2] = 0; break;							//	CROSS		(shift)
+					case 3: gamepad_states[0] = 0; gamepad_states[1] = 0; break;	//	SQUARE		left (and up)
+					case 4: break; /*** L ***/
+					case 5: break; /*** R ***/
+					case 6: gamepad_states[1] = 0; break;							//	DOWN		(down)
+					case 7: gamepad_states[0] = 0; break;							//	LEFT		(left)
+					case 8: gamepad_states[1] = 0; break;							//	UP			(up)
+					case 9: gamepad_states[0] = 0; break;							//	RIGHT		(right)
+					case 10: break;													//	SELECT
+					case 11: break;													//	START
+#else					
 					case 0: gamepad_states[1] = 0; break; /*** A (down) ***/
 					case 1: break; /*** B ***/
 					case 2: gamepad_states[2] = 0; break; /*** X (shift) ***/
@@ -2615,6 +2709,7 @@ void idle() {
 					case 8: break; /*** guide ***/
 					case 9: break; /*** left joystick ***/
 					case 10: break; /*** right joystick ***/
+#endif
 				}
 				break;
 			case SDL_TEXTINPUT:

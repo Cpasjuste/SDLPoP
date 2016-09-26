@@ -1,4 +1,4 @@
-# PoP Hall of Fame file
+ls d# PoP Hall of Fame file
 PRINCE.HOF
 
 # PoP saved game file
@@ -53,3 +53,12 @@ Makefile.win
 # CLion
 .idea/
 src/.idea/
+
+# PSP2
+src/data.d
+src/eboot.bin
+src/main.d
+src/param.sfo
+src/psp2shell_cli
+src/vpk*
+src/vpop*

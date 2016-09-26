@@ -1,33 +1,65 @@
-# Project: SDLPoP
+PHONY := all package clean
 
-CC = gcc
-RM = rm -f
+DATE := $(shell date +%y-%m-%d)
 
-HFILES = common.h config.h data.h proto.h types.h
-OBJ = main.o data.o seg000.o seg001.o seg002.o seg003.o seg004.o seg005.o seg006.o seg007.o seg008.o seg009.o seqtbl.o replay.o options.o
-BIN = ../prince
+CC := arm-vita-eabi-gcc
+CXX := arm-vita-eabi-g++
+STRIP := arm-vita-eabi-strip
 
-OS      := $(shell uname)
+PROJECT_TITLE := Prince Of Persia
+PROJECT_TITLEID := PRINCEPER
+PROJECT := vpop
 
-ifeq ($(OS),Darwin)
-LIBS := $(shell sdl2-config --libs) -lSDL2_image -lSDL2_mixer
-INCS := -I/opt/local/include
-CFLAGS += $(INCS) -Wall -std=gnu99 -D_GNU_SOURCE=1 -D_THREAD_SAFE -DOSX -O2
-else
-LIBS := $(shell pkg-config --libs   sdl2 SDL2_image SDL2_mixer)
-INCS := $(shell pkg-config --cflags sdl2 SDL2_image SDL2_mixer)
-CFLAGS += $(INCS) -Wall -std=gnu99 -O2
-endif
+LIBS = -lpsp2shell -lpthread -lSDL2 -lSDL2_image -lSDL2_mixer -lvorbis -lvorbisfile -logg \
+		-lvita2d -lSceDisplay_stub -lSceGxm_stub \
+		-lSceSysmodule_stub -lSceCtrl_stub -lScePgf_stub -lSceNetCtl_stub \
+		-lSceNet_stub -lScePower_stub -lSceKernel_stub -lSceCommonDialog_stub \
+		-lSceAppUtil_stub -lSceAudio_stub -lSceAppMgr_stub -lpng -ljpeg -lz -lm -lc
 
-all: $(BIN)
+
+CFLAGS  = -Wl,-q -O3 -Wall \
+			-march=armv7-a -mtune=cortex-a9 -mfpu=neon -mfloat-abi=hard \
+			-DPSP2 -std=gnu99 -I$(VITASDK)/arm-vita-eabi/include
+
+OBJS := main.o data.o seg000.o seg001.o seg002.o seg003.o seg004.o \
+	seg005.o seg006.o seg007.o seg008.o seg009.o seqtbl.o replay.o options.o \
+	strtoumax.o strtoimax.o
+
+all: package
+
+package: $(PROJECT).vpk
+
+$(PROJECT).vpk: eboot.bin param.sfo
+	rm -rf vpk && mkdir -p vpk/sce_sys/livearea/contents
+	cp eboot.bin vpk/
+	cp param.sfo vpk/sce_sys/
+	cp ../*.DAT vpk/
+	cp -r ../data vpk/data
+	cd vpk && zip -r ../$(PROJECT)-$(DATE).vpk . && cd ..
+#	cp vita/icon0.png vpk/sce_sys/
+#	cp vita/template.xml vpk/sce_sys/livearea/contents/
+#	cp vita/bg.png vpk/sce_sys/livearea/contents/
+#	cp vita/startup.png vpk/sce_sys/livearea/contents/
+	
+eboot.bin: $(PROJECT).velf
+	vita-make-fself $(PROJECT).velf eboot.bin
+
+param.sfo:
+	vita-mksfoex -s TITLE_ID="$(PROJECT_TITLEID)" "$(PROJECT_TITLE)" param.sfo
+
+$(PROJECT).velf: $(PROJECT).elf
+	$(STRIP) -g $<
+	vita-elf-create $< $@
+
+$(PROJECT).elf: $(OBJS)
+	$(CC) -Wl,-q -o $@ $^ $(LIBS)
+
+$(OBJ_DIRS):
+	mkdir -p $@
+
+out/%.o : src/%.c | $(OBJ_DIRS)
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 clean:
-	$(RM) $(OBJ) $(BIN)
-
-$(BIN): $(OBJ)
-	$(CC) $(LDFLAGS) $(OBJ) -o $@ $(LIBS)
-
-%.o: %.c $(HFILES)
-	$(CC) $(CFLAGS) $(LDFLAGS) -c $<
-
-.PHONY: all clean
+	rm -f $(PROJECT).velf $(PROJECT).elf *.vpk param.sfo eboot.bin $(OBJS)
+	rm -rf vpk

@@ -33,7 +33,9 @@ The authors of this program may be contacted at http://forum.princed.org
 
 // Enable or disable fading.
 // Fading used to be very buggy, but now it works correctly.
+#ifndef PSP2
 #define USE_FADE
+#endif
 
 // Enable or disable the potions level. (copy protection)
 #define USE_COPYPROT

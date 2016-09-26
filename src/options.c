@@ -23,10 +23,17 @@ The authors of this program may be contacted at http://forum.princed.org
 #include <inttypes.h>
 
 void use_default_options() {
+#ifdef PSP2
+    options.use_fixes_and_enhancements = 1;
+    options.enable_copyprot = 0;
+    options.enable_mixer = 1;
+    options.enable_fade = 0;
+#else
     options.use_fixes_and_enhancements = 0;
     options.enable_copyprot = 0;
     options.enable_mixer = 1;
     options.enable_fade = 1;
+#endif    
     options.enable_flash = 1;
     options.enable_text = 1;
     options.enable_quicksave = 1;
